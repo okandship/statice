@@ -1,0 +1,15 @@
+.DS_Store
+.claude/
+node_modules/
+.wrangler/
+dist/
+*.log
+
+# Local secrets and operator state. Never tracked; the project's own
+# `.statice` label file is public and deliberately NOT listed here.
+.env
+.env.*
+.dev.vars
+.dev.vars.*
+exports/
+.statice-ops/

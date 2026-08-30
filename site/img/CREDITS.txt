@@ -1,0 +1,24 @@
+Photographs of statice (Limonium sinuatum) and kin, from Unsplash, under the
+Unsplash License: free for commercial use, no attribution required. Credited on
+the page anyway.
+
+EVERY IMAGE HERE IS FROM THE FREE TIER. Unsplash+ results are watermarked and
+separately licensed -- if you swap one in, check `plus`/`premium` on the photo
+before you download it, not the search page.
+
+Each was cropped, resized and re-encoded to AVIF/WebP/JPEG; the masters are not
+in this repo.
+
+  pressed       Evie S.                       the specimen beside the hero
+                https://unsplash.com/photos/pink-flower-on-white-surface-KlYd4O7CVgY
+
+  everlasting   Pedro Forester Da Silva       the full-width plate, and og:image
+                https://unsplash.com/photos/brown-and-purple-plant-in-close-up-photography-nw6nBDgbz8c
+
+  hanging       Markus Winkler                behind the footer
+                https://unsplash.com/photos/a-close-up-of-flowers-oyIOuR3DsHg
+
+Six other sets (hero, texture, install, plate-hash, plate-name, plate-domain)
+were dropped when the page was rewritten. Their photographers, if they are ever
+wanted back: Iori Ikeda, Cristina Glebova, Ahura Jaff, paws and prints, Nikita
+Turkovich, Angele Kamp.

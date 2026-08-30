@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="statice">
+  <rect width="64" height="64" rx="14" fill="#100e14"/>
+  <g fill="#e0a79c">
+    <circle cx="32" cy="19" r="12"/>
+    <circle cx="44.4" cy="28" r="12"/>
+    <circle cx="39.6" cy="42.5" r="12"/>
+    <circle cx="24.4" cy="42.5" r="12"/>
+    <circle cx="19.6" cy="28" r="12"/>
+  </g>
+  <circle cx="32" cy="32" r="5.6" fill="#f0eadc"/>
+</svg>

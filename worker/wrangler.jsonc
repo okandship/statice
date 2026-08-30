@@ -1,0 +1,41 @@
+{
+  // Read by `wrangler deploy`, which Cloudflare's Workers Builds runs on every
+  // push to main that touches worker/ or the root package files. The README's
+  // "Working on the Worker" says how.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "statice",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-15",
+
+  // Smart Placement is what makes the deploy path work, not an optimization:
+  // 1,000 heads at width 6 is ~167 serial rounds of bucket latency.
+  "placement": { "mode": "smart" },
+
+  // Disable workers.dev -- the API has its own host.
+  "workers_dev": false,
+  // Off by choice. Workers Logs bills per log event past the included tier, and
+  // this Worker's whole job is one R2 read or two per request -- there is no
+  // application state to reconstruct from logs. `wrangler tail` still works for
+  // live debugging; it just persists nothing.
+  "observability": { "enabled": false },
+
+  "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "statice" }],
+
+  "vars": {
+    "OWNED_ZONES": "statice.app,statice.run,prmpt.bio,moonquest.dev"
+  },
+
+  "routes": [
+    { "pattern": "api.statice.run/*", "zone_name": "statice.run" },
+    { "pattern": "statice.run/*", "zone_name": "statice.run" },
+    { "pattern": "statice.app/*", "zone_name": "statice.app" },
+    { "pattern": "*.statice.app/*", "zone_name": "statice.app" },
+
+    // Own-zone layer 3. `custom_domain` rather than a `zone_name` route because
+    // it creates the proxied record and orders the certificate itself -- the
+    // route form needs DNS that already answers, which is bootstrap's "2 before
+    // 5". Bare hostnames: a custom domain pattern may not carry a path.
+    { "pattern": "brand.prmpt.bio", "custom_domain": true },
+    { "pattern": "moonquest.dev", "custom_domain": true }
+  ]
+}

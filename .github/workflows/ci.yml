@@ -1,0 +1,52 @@
+# Every push and pull request, from a clean install. This workflow holds no
+# credentials and is the only one a pull request can trigger: the Worker is
+# deployed by Cloudflare's own build on pushes to main, and the CLI publishes
+# from release.yml on a tag, neither of which a pull request reaches.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - run: node --check cli/statice.mjs
+      - run: npm run typecheck
+      - run: npm test
+      - name: the CLI package is exactly its four files
+        working-directory: cli
+        run: |
+          npm pack --dry-run --json | node -e '
+            const [pkg] = JSON.parse(require("fs").readFileSync(0, "utf8"));
+            const got = pkg.files.map((f) => f.path).sort();
+            const want = ["LICENSE", "README.md", "package.json", "statice.mjs"];
+            if (JSON.stringify(got) !== JSON.stringify(want)) {
+              console.error("packed:", got);
+              process.exit(1);
+            }
+          '
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      # Development toolchain only: the Worker and the CLI have no runtime
+      # dependencies. A failure here is a note to update, not a broken build.
+      - run: npm audit --audit-level=high

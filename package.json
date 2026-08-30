@@ -1,0 +1,19 @@
+{
+  "name": "statice-monorepo",
+  "private": true,
+  "workspaces": [
+    "worker",
+    "cli"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "npm test --workspaces --if-present && npm run test:parity",
+    "test:parity": "node --test --test-timeout=25000 \"test/**/*.test.mjs\"",
+    "typecheck": "npm run typecheck -w worker"
+  },
+  "overrides": {
+    "sharp": "0.35.4"
+  }
+}

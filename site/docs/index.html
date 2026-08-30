@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>statice — reference</title>
+<meta name="description" content="statice reference: how to get an access key, commands, files, what gets published, caching, limits and path resolution.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b0b0d" media="(prefers-color-scheme: dark)">
+
+<link rel="preload" as="font" type="font/woff2" href="/fonts/jetbrains-mono.woff2" crossorigin>
+
+<style>
+/* ─── the face ───────────────────────────────────────────────────────── */
+/* One, shared with the landing page. A manual set in the typeface the tool
+   prints in needs no second voice to mark the code apart from the prose. */
+@font-face {
+  font-family: "JetBrains Mono"; font-style: normal; font-weight: 400 700;
+  font-display: swap; src: url("/fonts/jetbrains-mono.woff2") format("woff2");
+}
+
+/* ─── tokens (identical to the landing page) ─────────────────────────── */
+:root {
+  color-scheme: light dark;
+
+  --bg:          #ffffff;
+  --fg:          #101012;
+  --muted:       #66666d;
+  --faint:       #74747b;
+  --rule:        #e5e5e8;
+
+  --panel:       #101012;
+  --panel-fg:    #f3f3f4;
+  --panel-muted: #8e8e97;
+  --panel-rule:  #26262b;
+  --pink:        #e0a79c;
+
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Two sizes. Everything on the page is one of them. */
+  --t1: 0.9375rem;
+  --t2: 0.75rem;
+
+  --gut: clamp(1.35rem, 5vw, 4.5rem);
+  --max: 70rem;
+  --edge: max(var(--gut), calc((100vw - var(--max)) / 2 + var(--gut)));
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b0b0d; --fg: #ececee; --muted: #9a9aa2; --faint: #85858d; --rule: #1e1e22;
+    --panel: #16161a; --panel-rule: #2b2b31;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b0b0d; --fg: #ececee; --muted: #9a9aa2; --faint: #85858d; --rule: #1e1e22;
+  --panel: #16161a; --panel-rule: #2b2b31;
+}
+
+/* ─── base ───────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font: 400 var(--t1)/1.7 var(--mono);
+  font-synthesis: none; -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+h1, h2 { margin: 0; font-size: inherit; font-weight: 700; }
+p { margin: 0 0 1.1rem; color: var(--muted); max-width: 68ch; }
+p:last-child { margin-bottom: 0; }
+strong { color: var(--fg); font-weight: 700; }
+/* No italic in the subset, so emphasis is carried by weight. */
+em, i { font-style: normal; font-weight: 700; color: var(--fg); }
+code { font-family: inherit; font-size: inherit; color: var(--fg); }
+a { color: inherit; text-decoration: underline; text-decoration-color: var(--rule);
+    text-underline-offset: 0.25em; }
+a:hover { text-decoration-color: currentColor; }
+
+/* Same formula as the landing page's .wrap, so a scrollbar cannot make the two
+   pages disagree about where the left margin is. */
+.wrap { width: 100%; padding-inline: var(--edge); }
+
+/* ─── masthead ───────────────────────────────────────────────────────── */
+.mast {
+  display: flex; align-items: baseline; gap: clamp(0.9rem, 3vw, 1.8rem);
+  padding: clamp(1.3rem, 3vw, 2.2rem) var(--edge);
+}
+.mark { font-weight: 700; text-decoration: none; margin-right: auto; }
+.mark__i {
+  width: 1.2em; height: 1.2em; vertical-align: -0.26em; margin-right: 0.5em;
+  color: var(--pink);
+}
+.mast nav { display: flex; gap: clamp(1rem, 3vw, 1.6rem); }
+.mast nav a { color: var(--muted); text-decoration: none; }
+.mast nav a:hover { color: var(--fg); }
+
+/* ─── page head ──────────────────────────────────────────────────────── */
+.head { padding-block: clamp(3.5rem, 9vw, 7rem) clamp(2.5rem, 6vw, 4rem); }
+.head p { margin-top: 0.85rem; margin-bottom: 0; }
+
+/* ─── body ───────────────────────────────────────────────────────────── */
+main { padding-bottom: clamp(4rem, 10vw, 8rem); }
+h2 {
+  margin: clamp(3rem, 7vw, 5rem) 0 1.2rem;
+  padding-top: 1.1rem; border-top: 1px solid var(--rule);
+}
+main .wrap > h2:first-of-type { margin-top: 0; }
+
+/* ─── tables ─────────────────────────────────────────────────────────── */
+.scroll { overflow-x: auto; margin: 0 0 1.6rem; scrollbar-width: thin;
+  scrollbar-color: var(--rule) transparent; }
+table { border-collapse: collapse; width: 100%; }
+th, td { text-align: left; padding: 0.75rem 1.2rem 0.75rem 0;
+  border-bottom: 1px solid var(--rule); vertical-align: top; }
+thead th { font-size: var(--t2); font-weight: 400; color: var(--faint); }
+tbody tr:last-child td { border-bottom: 0; }
+td { color: var(--muted); }
+td:first-child { color: var(--fg); white-space: nowrap; padding-right: 2rem; }
+
+/* Two columns in 375px leaves the prose four words wide, so the rows stack:
+   the key on its own line, the explanation under it. */
+@media (max-width: 46rem) {
+  table, tbody, tr, td { display: block; width: 100%; }
+  thead { display: none; }
+  tr { border-bottom: 1px solid var(--rule); padding-block: 0.9rem; }
+  tr:last-child { border-bottom: 0; }
+  td { border: 0; padding: 0; }
+  td:first-child { white-space: normal; padding-right: 0; margin-bottom: 0.2rem; }
+}
+
+/* ─── note ───────────────────────────────────────────────────────────── */
+/* Boxed, like the warning on the landing page, and for the same reason. */
+.note { border: 1px solid var(--rule); padding: clamp(1.4rem, 4vw, 2.2rem);
+  margin: 2.2rem 0 0; max-width: 72ch; }
+.note p { margin: 0; max-width: none; }
+@media (max-width: 46rem) {
+  .note { border-inline: 0; padding-inline: 0; padding-block: clamp(1.4rem, 5vw, 1.9rem); }
+}
+
+/* ─── footer ─────────────────────────────────────────────────────────── */
+footer {
+  border-top: 1px solid var(--rule); margin-top: clamp(3.5rem, 9vw, 6rem);
+  padding-top: 1.4rem;
+  display: flex; flex-wrap: wrap; gap: 0.8rem clamp(1.2rem, 4vw, 2.4rem);
+  color: var(--faint);
+}
+footer .sp { margin-right: auto; }
+footer a { color: var(--muted); }
+footer a:hover { color: var(--fg); }
+
+:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.skip { position: absolute; left: -9999px; z-index: 99;
+  background: var(--panel); color: var(--panel-fg); padding: 0.7rem 1.1rem; }
+.skip:focus { left: var(--gut); top: 1rem; }
+</style>
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<div class="mast">
+  <a class="mark" href="/"><svg class="mark__i" viewBox="7 6 50 50" aria-hidden="true" focusable="false"><g fill="currentColor"><circle cx="32" cy="19" r="12"/><circle cx="44.4" cy="28" r="12"/><circle cx="39.6" cy="42.5" r="12"/><circle cx="24.4" cy="42.5" r="12"/><circle cx="19.6" cy="28" r="12"/></g><circle cx="32" cy="32" r="5.6" fill="var(--bg)"/></svg>statice</a>
+  <nav>
+    <a href="/">home</a>
+    <a href="https://www.npmjs.com/package/@statice/cli">npm</a>
+    <a href="https://github.com/okandship/statice">source</a>
+    <a href="mailto:access@statice.run">get a key</a>
+  </nav>
+</div>
+
+<div class="head wrap">
+  <h1>Reference</h1>
+  <p>Commands, files, what gets published, and the rules the server follows.
+  Everything here is what the CLI and the Worker actually do.</p>
+</div>
+
+<main id="main">
+<div class="wrap">
+
+<h2>Getting a key</h2>
+
+<p>statice is not self-serve. Every call to the API carries an access key, keys
+are <strong>issued by hand</strong>, and there is no page anywhere that will mint
+you one. Email <a href="mailto:access@statice.run">access@statice.run</a> and
+ask, saying roughly what you want to publish.</p>
+
+<p><code>statice key</code> stores the key you were given in
+<code>~/.statice/key</code>; it does not request one, and everything below
+assumes it is already set. The key is still not an account — see
+<a href="#credentials">Two credentials</a>.</p>
+
+<h2>Commands</h2>
+
+<div class="scroll"><table>
+<tbody>
+<tr><td>statice</td><td>Deploy this folder to a hash URL. With a <code>.statice</code> file present, also update that name.</td></tr>
+<tr><td>statice --name "…"</td><td>Deploy, then claim a short name — or update it if this folder already has one.</td></tr>
+<tr><td>statice --name</td><td>The same, named after the folder.</td></tr>
+<tr><td>statice --isolated</td><td>Write the cross-origin isolation marker into the folder, then deploy.</td></tr>
+<tr><td>statice --verify</td><td>Re-upload every blob, then deploy. The way back when a site looks broken.</td></tr>
+<tr><td>statice --dry-run</td><td>List exactly what would be published, and what name it would claim or update, then stop. Nothing leaves the machine; no key needed.</td></tr>
+<tr><td>statice key</td><td>Store the access key you were issued on this machine. Prompts, or reads stdin.</td></tr>
+<tr><td>statice claim &lt;label&gt;</td><td>Adopt a name on a second machine, given its token.</td></tr>
+<tr><td>statice names</td><td>Every label with a token on this machine, and its folder.</td></tr>
+<tr><td>statice retire [label]</td><td>Take a label out of service. The record survives, so nobody else can take it — and the token stays on this machine, so <code>statice claim &lt;label&gt;</code> followed by a deploy revives it.</td></tr>
+</tbody>
+</table></div>
+
+<h2>Files</h2>
+
+<div class="scroll"><table>
+<tbody>
+<tr><td>.statice</td><td>The label, in your project. Public — commit it if you like.</td></tr>
+<tr><td>~/.statice/key</td><td>The access key you were issued. One per machine.</td></tr>
+<tr><td>~/.statice/slugs/&lt;label&gt;</td><td>The name's token, and the folder it was claimed in. <strong>Losing it loses the name, permanently.</strong></td></tr>
+<tr><td>~/.statice/deployed</td><td>A log of every deploy — and the only way back to a 52-character URL nobody can retype.</td></tr>
+</tbody>
+</table></div>
+
+<p>Everything under <code>~/.statice</code> is <code>0600</code> inside a
+<code>0700</code> directory. <code>STATICE_KEY</code> and
+<code>STATICE_TOKEN</code> override the files, for machines with no durable home
+directory. <code>STATICE_API</code> points the CLI at a different API; it must be
+HTTPS, or plain HTTP on a loopback address only, since the key rides on every
+call.</p>
+
+<h2 id="credentials">Two credentials</h2>
+
+<p>The <strong>access key</strong> is admission: one per caller, on every API
+call, and handed out by a person at
+<a href="mailto:access@statice.run">access@statice.run</a>. The <strong>name
+token</strong> is possession: one per label, generated locally. The server
+stores only its SHA-256, which is what the claim sends; the token itself is
+sent over HTTPS with each update, check and retirement it authorizes, compared against that hash, and never written down server-side.</p>
+
+<p>They are never merged. A key that also owned names would be an account, with
+every site linkable to every other and one leak losing all of them.</p>
+
+<h2>What gets published</h2>
+
+<p>The CLI walks the folder and admits files by extension. It prunes
+<code>.git</code>, <code>node_modules</code> and dot-directories — except a
+top-level <code>.well-known</code> — skips symlinks entirely, and drops
+<code>CLAUDE.md</code> and <code>AGENTS.md</code> at every depth: they are an
+admitted type, but they are written for an agent standing in the folder, never
+for the web.</p>
+
+<p>Nothing leaves quietly. Every deploy names what the type table refused, and
+then, separately, what the walk dropped before the table saw it — each path
+beside the rule that dropped it, and a pruned tree named with a trailing slash
+and no count, because it is never opened.</p>
+
+<p>Two things it does not do. It does not read <code>.gitignore</code>, or any
+other ignore file: what is in the folder is what is considered. And it drops
+dot-<em>directories</em>, not dot-<em>files</em>: a file like
+<code>.env.local.json</code> has an admitted extension and is published like
+any other. Source, JSON, sourcemaps and documents in admitted types all go up.
+<code>statice --dry-run</code> prints the exact list without sending anything,
+and the first deploy from a folder shows the same list before it asks.</p>
+
+<p><strong>Admitted:</strong> <code>.html</code> <code>.htm</code>
+<code>.css</code> <code>.js</code> <code>.mjs</code> <code>.json</code>
+<code>.wasm</code> <code>.pck</code> <code>.data</code> <code>.map</code>, the
+image set, the font set, the media set, plus <code>.pdf</code>
+<code>.txt</code> <code>.xml</code> <code>.svg</code>
+<code>.webmanifest</code> <code>.vtt</code> <code>.md</code>
+<code>.obj</code>.</p>
+
+<p><strong>Excluded</strong>, which is the more interesting half:
+<code>.ts</code> <code>.tsx</code> <code>.jsx</code> <code>.yml</code>
+<code>.toml</code> <code>.sql</code> <code>.sh</code> <code>.py</code>
+<code>.pem</code> <code>.key</code> <code>.tfstate</code>, and everything
+extensionless — except a fixed set of names directly under a top-level
+<code>.well-known</code>, which are admitted by name. That happens to stop a source tree being published — but
+<strong>it cannot stop a secret in an admitted type</strong>, and it was never a
+security control.</p>
+
+<p><code>.map</code> is admitted and <em>flagged</em>: every sourcemap is named
+back to you on every deploy in which it is new, because sourcemaps embed
+original source. Dropping <code>.map</code> from the table instead would break
+the production error reporting sourcemaps exist for.</p>
+
+<h2>Caching</h2>
+
+<div class="scroll"><table>
+<thead><tr><th>host</th><th>Cache-Control</th></tr></thead>
+<tbody>
+<tr><td>&lt;root&gt;.statice.app</td><td><code>public, max-age=31536000, immutable</code></td></tr>
+<tr><td>&lt;name&gt;.statice.app</td><td><code>no-cache</code></td></tr>
+</tbody>
+</table></div>
+
+<p>The hash host can promise a year because the root is in the name. Named hosts
+get <code>no-cache</code> plus a strong <code>ETag</code> — so a match is a 304
+with no read, and a deploy is live the instant it lands. Not
+<code>stale-while-revalidate</code>, and not a small <code>max-age</code>: a
+deployer refreshing mid-write would otherwise get a page that is half old and
+half new, because assets resolve against whichever record their own request
+caught.</p>
+
+<h2>Limits</h2>
+
+<div class="scroll"><table>
+<tbody>
+<tr><td>64 MB</td><td>one file. Sized so ffmpeg's core wasm (~31 MB) and a Godot export (~43 MB) fit whole.</td></tr>
+<tr><td>512 MB</td><td>one deploy, summed over distinct files.</td></tr>
+<tr><td>1,000</td><td>files in one deploy.</td></tr>
+<tr><td>1,024 bytes</td><td>one path.</td></tr>
+</tbody>
+</table></div>
+
+<h2>Ranges and media</h2>
+
+<p>One range per request is honored; every other shape of the header gets the
+full 200. <code>If-Range</code> is enforced against the strong ETag, so a client
+resuming yesterday's download never gets today's bytes spliced onto it. Safari
+probes <code>&lt;video&gt;</code> with <code>Range: bytes=0-1</code> and will not
+play without a 206 — which is why the media set works at all.</p>
+
+<h2>Path resolution</h2>
+
+<p>A path ending in <code>/</code> tries <code>index.html</code> then
+<code>index.htm</code>. A path whose directory form exists gets a 301. There is
+<strong>no <code>404.html</code>, no SPA fallback and no extensionless
+lookup</strong>. If you need client-side routing, serve it from
+<code>index.html</code> and route in the browser.</p>
+
+<h2>One cookie jar</h2>
+
+<p>Every hash URL and every name is its own origin, so <code>localStorage</code>,
+IndexedDB and service workers are separate per site. Cookies are not:
+<code>statice.app</code> is not on the Public Suffix List, so a page on any
+<code>*.statice.app</code> host can set a cookie with
+<code>domain=.statice.app</code> that every other site under it receives.
+Nothing served here can prevent that. <strong>Do not put anything
+cookie-authenticated on a statice.app host.</strong></p>
+
+<h2>When something looks broken</h2>
+
+<p>A plain redeploy of unchanged bytes answers from a single operation without
+checking a single file — which is the point, and also means it will not repair a
+file that has been taken down. <code>statice --verify</code> is what re-uploads
+everything. Reach for it, not for a plain redeploy.</p>
+
+<div class="note">
+<p>Hash URLs are permanent: manifests are never deleted and there is no
+garbage collector, so nothing you publish goes away on its own. A name can be
+retired with <code>statice retire</code>, which makes it 404 while keeping the
+record, so nobody else can serve their own content at a URL you already
+shared.</p>
+</div>
+
+<footer>
+  <span class="sp">content-addressed static hosting</span>
+  <a href="/">home</a>
+  <a href="https://www.npmjs.com/package/@statice/cli">npm</a>
+  <a href="https://github.com/okandship/statice">source</a>
+  <a href="https://statice.app">statice.app</a>
+</footer>
+
+</div>
+</main>
+
+</body>
+</html>

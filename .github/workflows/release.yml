@@ -1,0 +1,48 @@
+# Publishes @statice/cli when a `cli-v<version>` tag is pushed. There is no npm
+# token anywhere: npm's trusted publishing accepts this repository's OIDC
+# identity for this workflow file, and the publish carries provenance, so the
+# registry can show which commit the tarball was built from.
+name: release
+
+on:
+  push:
+    tags: ["cli-v*"]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - run: npm ci
+      - name: the tag names the version in cli/package.json
+        run: |
+          want="${GITHUB_REF_NAME#cli-v}"
+          have="$(node -p 'require("./cli/package.json").version')"
+          [ "$want" = "$have" ] || { echo "tag says $want, cli/package.json says $have"; exit 1; }
+      - run: node --check cli/statice.mjs
+      - run: npm test -w cli
+      - run: npm run test:parity
+      - name: the package is exactly its four files
+        working-directory: cli
+        run: |
+          npm pack --dry-run --json | node -e '
+            const [pkg] = JSON.parse(require("fs").readFileSync(0, "utf8"));
+            const got = pkg.files.map((f) => f.path).sort();
+            const want = ["LICENSE", "README.md", "package.json", "statice.mjs"];
+            if (JSON.stringify(got) !== JSON.stringify(want)) {
+              console.error("packed:", got);
+              process.exit(1);
+            }
+          '
+      - name: publish with provenance
+        working-directory: cli
+        run: npm publish --provenance --access public

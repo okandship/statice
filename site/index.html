@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>statice — type it in a folder, get a live URL</title>
+<meta name="description" content="Name it what you like. Underneath, every deploy gets a permanent URL that is the hash of the files it serves. No accounts, no project creation, no config file.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b0b0d" media="(prefers-color-scheme: dark)">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="statice — type it in a folder, get a live URL">
+<meta property="og:description" content="Name it what you like. Underneath, every deploy gets a permanent URL that is the hash of the files it serves. No accounts, no project creation, no config file.">
+<meta property="og:url" content="https://statice.run/">
+<meta property="og:image" content="https://statice.run/img/everlasting-1200.jpg">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="preload" as="font" type="font/woff2" href="/fonts/jetbrains-mono.woff2" crossorigin>
+<link rel="preload" as="image" type="image/avif" href="/img/pressed-1200.avif"
+      imagesrcset="/img/pressed-420.avif 420w, /img/pressed-760.avif 760w, /img/pressed-1200.avif 1200w"
+      imagesizes="(min-width: 62rem) 40vw, 100vw" fetchpriority="high">
+
+<style>
+/* ─── the face ───────────────────────────────────────────────────────── */
+/* One. The page is set in the typeface the tool prints in, at the size the
+   tool prints at, so the site and its own terminal output are the same
+   object. Nothing here is allowed a second voice. */
+@font-face {
+  font-family: "JetBrains Mono"; font-style: normal; font-weight: 400 700;
+  font-display: swap; src: url("/fonts/jetbrains-mono.woff2") format("woff2");
+}
+
+/* ─── tokens ─────────────────────────────────────────────────────────── */
+:root {
+  color-scheme: light dark;
+
+  --bg:          #ffffff;
+  --fg:          #101012;
+  --muted:       #66666d;
+  --faint:       #74747b;
+  --rule:        #e5e5e8;
+
+  /* The dark field, fixed in both themes the way a plate is. */
+  --panel:       #101012;
+  --panel-fg:    #f3f3f4;
+  --panel-muted: #8e8e97;
+  --panel-rule:  #26262b;
+  /* The only colour on the page: the mark, and URLs the tool hands you.
+     Taken off the petals in the specimen photograph: hue 10°, chroma raised
+     from the print's 0.15 to 0.30 so it still reads as pink at 15px. */
+  --pink:        #e0a79c;
+
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Two sizes. Everything on the page is one of them. */
+  --t1: 0.9375rem;
+  --t2: 0.75rem;
+
+  --gut: clamp(1.35rem, 5vw, 4.5rem);
+  --max: 70rem;
+  /* Where .wrap's content edge lands, so full-bleed things can align to it. */
+  --edge: max(var(--gut), calc((100vw - var(--max)) / 2 + var(--gut)));
+  /* Type this small buys its presence with emptiness, so the air is the one
+     number worth tuning. */
+  --air: clamp(6rem, 15vw, 14rem);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b0b0d; --fg: #ececee; --muted: #9a9aa2; --faint: #85858d; --rule: #1e1e22;
+    --panel: #16161a; --panel-rule: #2b2b31;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b0b0d; --fg: #ececee; --muted: #9a9aa2; --faint: #85858d; --rule: #1e1e22;
+  --panel: #16161a; --panel-rule: #2b2b31;
+}
+
+/* ─── base ───────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 var(--t1)/1.7 var(--mono);
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+img, picture { display: block; max-width: 100%; }
+/* `height: auto` is not optional: the width/height attributes land as
+   presentational hints, and a fixed height beats any aspect-ratio we set. */
+img { height: auto; }
+h1, h2, h3 { margin: 0; font-size: inherit; font-weight: 700; }
+p { margin: 0; }
+b, strong { font-weight: 700; }
+
+a { color: inherit; text-decoration: underline; text-decoration-color: var(--rule);
+    text-underline-offset: 0.25em; }
+a:hover { text-decoration-color: currentColor; }
+
+.wrap { width: 100%; padding-inline: var(--edge); }
+/* Mono runs wide, so the measure is counted in characters and kept honest. */
+.measure { max-width: 62ch; }
+.small { font-size: var(--t2); line-height: 1.6; color: var(--faint); }
+.dim { color: var(--muted); }
+
+/* ─── reveal (zero JS, degrades to visible) ──────────────────────────── */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .rise {
+      animation: rise linear both;
+      animation-timeline: view();
+      animation-range: entry 4% cover 18%;
+    }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(0.75rem); }
+      to   { opacity: 1; transform: none; }
+    }
+  }
+}
+
+/* ─── terminal ───────────────────────────────────────────────────────── */
+/* Same face, same size as the prose around it. Only the ground changes. */
+.term {
+  background: var(--panel); color: var(--panel-fg);
+  padding: clamp(1.1rem, 3vw, 1.6rem) clamp(1.1rem, 2.4vw, 1.35rem);
+  font: 400 var(--t1)/1.75 var(--mono);
+  overflow-x: auto; white-space: pre; margin: 0;
+}
+/* The output URL wraps instead of forcing the block to scroll — a 52-char
+   label is the point of the demo. The hanging indent puts the continuation
+   under the URL rather than back at column zero. */
+.term .out {
+  display: inline-block; vertical-align: top; max-width: calc(100% - 2ch);
+  white-space: pre-wrap; overflow-wrap: break-word;
+  padding-left: 2ch; text-indent: -2ch;
+  color: var(--pink);
+}
+/* The command wraps the same way, so a long --name never forces a scroll on a
+   phone; the hanging indent keeps its continuation under the command. */
+.term .cmd {
+  display: inline-block; vertical-align: top; max-width: calc(100% - 2ch);
+  white-space: pre-wrap; overflow-wrap: break-word;
+  padding-left: 2ch; text-indent: -2ch;
+}
+.term .pr { color: var(--panel-muted); }
+.term .lg { color: var(--panel-muted); }
+.term { scrollbar-width: thin; scrollbar-color: var(--panel-rule) transparent; }
+.term::-webkit-scrollbar { height: 5px; }
+.term::-webkit-scrollbar-track { background: transparent; }
+.term::-webkit-scrollbar-thumb { background: var(--panel-rule); }
+
+/* ─── masthead ───────────────────────────────────────────────────────── */
+.mast {
+  display: flex; align-items: baseline; gap: clamp(0.9rem, 3vw, 1.8rem);
+  padding: clamp(1.3rem, 3vw, 2.2rem) var(--edge);
+}
+.mark { font-weight: 700; text-decoration: none; margin-right: auto; }
+.mark__i {
+  width: 1.2em; height: 1.2em; vertical-align: -0.26em; margin-right: 0.5em;
+  color: var(--pink);
+}
+.mast nav { display: flex; gap: clamp(1rem, 3vw, 1.6rem); }
+.mast nav a { color: var(--muted); text-decoration: none; }
+.mast nav a:hover { color: var(--fg); }
+
+/* ─── hero ───────────────────────────────────────────────────────────── */
+/* The block sits on the floor of the viewport with the whole page empty above
+   it. At this size that emptiness is the only thing that can carry it. */
+.hero {
+  min-height: 100svh; display: grid;
+  grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr auto;
+}
+.hero__type {
+  min-width: 0; display: flex; flex-direction: column; justify-content: flex-end;
+  padding: clamp(3rem, 10vw, 7rem) var(--edge) clamp(3rem, 7vw, 4.5rem);
+}
+.hero h1 { max-width: 46ch; }
+.hero__deck { margin-top: 0.85rem; max-width: 56ch; color: var(--muted); }
+.hero__deck b { color: var(--fg); }
+.hero__term { margin-top: clamp(2.2rem, 5vw, 3.2rem); max-width: 44rem; }
+.hero__note { margin-top: 0.85rem; }
+
+/* The specimen keeps its own paper in every theme and runs off the right edge
+   of the page, the way a plate overruns its leaf. */
+.hero__mount { position: relative; background: #f6f6f8; border-left: 1px solid var(--rule); }
+.hero__mount picture, .hero__mount img { width: 100%; height: 100%; }
+.hero__mount img { object-fit: cover; object-position: 50% 48%; }
+@media (max-width: 61.99rem) {
+  .hero__mount { height: 32svh; min-height: 11rem; border-left: 0; border-top: 1px solid var(--rule); }
+}
+@media (min-width: 62rem) {
+  .hero { grid-template-columns: minmax(0, 1fr) minmax(0, 0.54fr); grid-template-rows: auto 1fr; }
+  .mast { grid-row: 1; grid-column: 1; padding-right: clamp(2.5rem, 5vw, 4.5rem); }
+  .hero__type { grid-row: 2; grid-column: 1; padding-right: clamp(2.5rem, 5vw, 4.5rem); }
+  .hero__mount { grid-row: 1 / -1; grid-column: 2; }
+}
+
+/* ─── the epigraph plate ─────────────────────────────────────────────── */
+/* No scrim, no overlay, nothing on the picture at all. Text placed in a
+   photograph's "empty" corner only stays there at one window width — it was
+   sitting on the flowers by 1500px — and a wash heavy enough to rescue it
+   erases the thing it is sitting on. So the picture is a plate and the line
+   is its caption, set on the same left grid as every other line on the page. */
+.plate { background: var(--bg); padding-block: clamp(3rem, 7vw, 7rem); }
+.plate__fig { position: relative; aspect-ratio: 16 / 10; overflow: hidden; }
+/* Absolute, not merely height: 100%. A percentage height has nothing to
+   resolve against when the parent's own height comes from aspect-ratio, so it
+   fell back to the auto height above and the picture drew at its intrinsic
+   2.4:1 inside a 16/10 box — 78px of blank page between the photograph and
+   its caption, on narrow screens only, where the two ratios differ. */
+.plate__fig img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 34% 50%; }
+.plate__words { padding: clamp(1.4rem, 3vw, 2rem) var(--edge) 0; }
+.plate__line { max-width: 62ch; }
+.plate__credit { margin-top: 0.55rem; }
+@media (min-width: 56rem) {
+  .plate__fig { aspect-ratio: 2.4 / 1; }
+  .plate__fig img { object-position: 50% 50%; }
+}
+
+/* ─── names ──────────────────────────────────────────────────────────── */
+/* Sits between the hero and the plate, on the same white ground, so the
+   photograph lands between two stretches of prose instead of directly under
+   the specimen — two pictures touching read as one broken picture. It pays
+   the air above itself; the plate's own padding is the gap below. */
+.names { padding-block: var(--air) 0; }
+.names h2 { max-width: 46ch; }
+.names__deck { margin-top: 0.85rem; max-width: 56ch; color: var(--muted); }
+.names__rows { margin-top: clamp(2.5rem, 6vw, 4rem); }
+.row {
+  display: grid; gap: 0.35rem 2.5rem;
+  padding-block: clamp(1.3rem, 3vw, 1.9rem);
+  border-top: 1px solid var(--rule);
+}
+.row:last-of-type { border-bottom: 1px solid var(--rule); }
+@media (min-width: 56rem) {
+  .row { grid-template-columns: 38ch minmax(0, 1fr); align-items: baseline; }
+}
+.row__cmd { overflow-wrap: break-word; }
+.row__cmd .pr { color: var(--faint); }
+.row__note { color: var(--muted); }
+.row__note b { color: var(--fg); font-weight: 400; }
+
+/* ─── the address ────────────────────────────────────────────────────── */
+/* The one every deploy gets whether or not it was named. A dark room, but a
+   smaller one than before: at 52 characters the label fits unbroken, which is
+   all this has to show. */
+.hash { background: var(--panel); color: var(--panel-fg); padding-block: var(--air); }
+.hash__label { color: var(--panel-muted); max-width: 62ch; }
+.hash__addr { margin-top: clamp(1.8rem, 5vw, 3.5rem); overflow-wrap: break-word; }
+.hash__addr b { color: var(--pink); font-weight: 400; }
+.hash__body { margin-top: clamp(1.8rem, 5vw, 3.5rem); max-width: 62ch; }
+.hash__body h2 { margin-bottom: 0.85rem; }
+.hash__body p { color: var(--panel-muted); }
+.hash__body p + p { margin-top: 1.1rem; }
+.hash__body a { color: var(--panel-fg); text-decoration-color: var(--panel-rule); }
+.hash__body a:hover { text-decoration-color: currentColor; }
+
+/* ─── permanence ─────────────────────────────────────────────────────── */
+/* Titled like every other section, not boxed: the point is a property of the
+   URL, and a box would read as a warning label on the whole product. */
+.warn { padding-block: var(--air); }
+.warn__in { max-width: 66ch; }
+.warn h2 { margin-bottom: 1.1rem; }
+.warn p { color: var(--muted); }
+.warn p + p { margin-top: 1.1rem; }
+.warn strong { color: var(--fg); }
+
+/* ─── footer ─────────────────────────────────────────────────────────── */
+.foot { position: relative; background: var(--panel); color: var(--panel-fg); overflow: hidden; }
+.foot__bg { position: absolute; inset: 0; z-index: 0; }
+.foot__bg picture, .foot__bg img { width: 100%; height: 100%; }
+.foot__bg img { object-fit: cover; }
+.foot__bg::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(11,11,13,.72) 0%, rgba(11,11,13,.88) 46%, #0b0b0d 100%);
+}
+.foot .wrap { position: relative; z-index: 2; padding-block: var(--air) 2.5rem; }
+.foot__term { margin-top: clamp(1.6rem, 4vw, 2.4rem); max-width: 44rem; }
+/* `statice key` sits in the block above with nothing saying where a key comes
+   from, so the answer goes directly under it — in panel colours, since --faint
+   is mixed for the white page and goes muddy here. */
+.foot__ask { margin-top: 1.2rem; max-width: 44rem; color: var(--panel-muted); }
+.foot__ask strong { color: var(--panel-fg); }
+.foot__ask a { color: var(--panel-fg); text-decoration-color: var(--panel-rule); }
+.foot__ask a:hover { text-decoration-color: currentColor; }
+.foot__rows {
+  margin-top: clamp(3rem, 8vw, 5.5rem); padding-top: 1.3rem;
+  border-top: 1px solid var(--panel-rule);
+  display: flex; flex-wrap: wrap; gap: 0.8rem clamp(1.2rem, 4vw, 2.4rem);
+  color: var(--panel-muted);
+}
+.foot__rows a { color: var(--panel-fg); text-decoration-color: var(--panel-rule); }
+.foot__rows .sp { margin-right: auto; }
+.credits { margin-top: 1.6rem; font-size: var(--t2); line-height: 1.75;
+  color: #85858d; max-width: 74ch; }
+.credits a { color: inherit; text-decoration-color: #3a3a42; }
+
+/* ─── focus ──────────────────────────────────────────────────────────── */
+:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.skip {
+  position: absolute; left: -9999px; z-index: 99;
+  background: var(--panel); color: var(--panel-fg); padding: 0.7rem 1.1rem;
+}
+.skip:focus { left: var(--gut); top: 1rem; }
+</style>
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="hero">
+  <div class="mast">
+    <a class="mark" href="/"><svg class="mark__i" viewBox="7 6 50 50" aria-hidden="true" focusable="false"><g fill="currentColor"><circle cx="32" cy="19" r="12"/><circle cx="44.4" cy="28" r="12"/><circle cx="39.6" cy="42.5" r="12"/><circle cx="24.4" cy="42.5" r="12"/><circle cx="19.6" cy="28" r="12"/></g><circle cx="32" cy="32" r="5.6" fill="var(--bg)"/></svg>statice</a>
+    <nav>
+      <a href="/docs/">docs</a>
+      <a href="https://www.npmjs.com/package/@statice/cli">npm</a>
+      <a href="https://github.com/okandship/statice">source</a>
+      <a href="mailto:access@statice.run">get a key</a>
+    </nav>
+  </div>
+
+  <div class="hero__type">
+    <h1>type statice in a folder, get a live URL.</h1>
+    <p class="hero__deck">Name it what you like. Underneath, every deploy gets a permanent URL that is the hash of the files it serves. <b>No accounts, no project creation, no config file.</b></p>
+
+    <div class="hero__term">
+      <pre class="term" aria-label="Terminal: running statice in a folder with a name"><span class="cmd"><span class="pr">$</span> statice --name "cool 3d generator"</span>
+  <span class="lg">scanning 4 files</span>
+  <span class="lg">uploading 2 new blobs</span>
+  <span class="out">→&nbsp;https://cool-3d-generator-hfj.statice.app</span></pre>
+      <p class="small hero__note">About three seconds. Needs Node 18 or newer; the CLI is a single file with no dependencies.</p>
+      <p class="small hero__note">It also needs an access key, and there is no signup: keys are issued by hand. Ask for one at <a href="mailto:access@statice.run">access@statice.run</a>.</p>
+    </div>
+  </div>
+
+  <div class="hero__mount">
+    <picture>
+      <source type="image/avif" sizes="(min-width: 62rem) 40vw, 100vw" srcset="/img/pressed-420.avif 420w, /img/pressed-760.avif 760w, /img/pressed-1200.avif 1200w">
+      <source type="image/webp" sizes="(min-width: 62rem) 40vw, 100vw" srcset="/img/pressed-420.webp 420w, /img/pressed-760.webp 760w, /img/pressed-1200.webp 1200w">
+      <img src="/img/pressed-1200.jpg" width="1200" height="1600" alt="A dried sprig of statice on a white surface, casting a long soft shadow." fetchpriority="high" decoding="async">
+    </picture>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ── names ──────────────────────────────────────────────────────── -->
+<section class="names" id="names">
+  <div class="wrap">
+    <h2 class="rise">You pick the words. The suffix is assigned.</h2>
+    <p class="names__deck rise">So a claim never fails, and nobody is ever told a name is taken. The folder remembers its name in a <b>.statice</b> file, and the next plain <b>statice</b> in it updates the name instead of claiming another.</p>
+
+    <div class="names__rows rise">
+      <div class="row">
+        <p class="row__cmd"><span class="pr">$</span> statice --name "cool 3d generator"</p>
+        <p class="row__note">Claims <b>cool-3d-generator-hfj.statice.app</b> and points it at this deploy.</p>
+      </div>
+      <div class="row">
+        <p class="row__cmd"><span class="pr">$</span> statice</p>
+        <p class="row__note">Same folder, later. Uploads only what changed and moves the name to it. The previous version keeps its own URL.</p>
+      </div>
+      <div class="row">
+        <p class="row__cmd"><span class="pr">$</span> statice retire</p>
+        <p class="row__note">Takes the name out of service. The record survives, so nobody else can claim it, and <b>statice claim</b> brings it back.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── epigraph ───────────────────────────────────────────────────── -->
+<section class="plate">
+  <div class="plate__fig">
+    <picture>
+      <source type="image/avif" sizes="100vw" srcset="/img/everlasting-760.avif 760w, /img/everlasting-1200.avif 1200w, /img/everlasting-1800.avif 1800w, /img/everlasting-2400.avif 2400w">
+      <source type="image/webp" sizes="100vw" srcset="/img/everlasting-760.webp 760w, /img/everlasting-1200.webp 1200w, /img/everlasting-1800.webp 1800w, /img/everlasting-2400.webp 2400w">
+      <img src="/img/everlasting-1200.jpg" width="2400" height="1000" alt="A bunch of statice hung upside down to dry against a pale wall, its violet darkened but intact." loading="lazy" decoding="async">
+    </picture>
+  </div>
+  <div class="plate__words">
+    <p class="plate__line">Statice, hung to dry. It's what this is named after.</p>
+    <p class="small plate__credit">Photograph — <a href="https://unsplash.com/photos/brown-and-purple-plant-in-close-up-photography-nw6nBDgbz8c">Pedro Forester Da Silva</a></p>
+  </div>
+</section>
+
+<!-- ── the address ────────────────────────────────────────────────── -->
+<section class="hash" id="address">
+  <div class="wrap">
+    <p class="hash__label rise">Underneath the name, and with or without one, every deploy gets this:</p>
+    <p class="hash__addr rise"><b>q4mfcytc4jz3gr7hnrpvzlqjxdfy2b6k5wmxnh3ttaeqzvjm4h5a<wbr>.statice.app</b></p>
+    <div class="hash__body rise">
+      <h2>The label is the SHA&#8209;256 of the files, in base32.</h2>
+      <p>The name points at it. Change any file and you get a different one; deploy the identical folder a year later and you get this one back. It can't be repointed and it doesn't expire, and the year&#8209;long <b>immutable</b> header is safe because the bytes at that URL can't change without a SHA&#8209;256 collision. Every version a name has ever pointed at stays reachable at its own.</p>
+      <p>The <a href="/docs/">docs</a> have the rest: what goes up and what is dropped, cross&#8209;origin isolation, and why the whole persistence layer is four key prefixes and no database.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── the warning ────────────────────────────────────────────────── -->
+<section class="warn" id="permanence">
+  <div class="wrap">
+    <div class="warn__in rise">
+      <h2>Hash URLs are permanent.</h2>
+      <p>That is what makes one worth sharing: the bytes at it can't change, so it is cached as <strong>immutable</strong> for a year and never repointed. It also means publishing is one&#8209;way. Access keys are validated and discarded, so nothing records who deployed what, and taking a file down is an operator action rather than a command.</p>
+      <p>So the first deploy from a folder stops and shows you what it is about to publish — file counts per directory, any sourcemaps it found, anything it skipped — and then asks: <strong>deploy 847 files to a permanent URL? [y/N]</strong>. That is the place to look.</p>
+      <p>Names work differently. <strong>statice retire</strong> takes one out of service; the record survives, so nobody else can claim it, and you can bring it back. The token that proves it is yours lives in <strong>~/.statice/slugs/&lt;label&gt;</strong>, with no rotation and no recovery, so keep it.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot" id="start">
+  <div class="foot__bg">
+    <picture>
+      <source type="image/avif" sizes="100vw" srcset="/img/hanging-760.avif 760w, /img/hanging-1200.avif 1200w, /img/hanging-1800.avif 1800w, /img/hanging-2400.avif 2400w">
+      <source type="image/webp" sizes="100vw" srcset="/img/hanging-760.webp 760w, /img/hanging-1200.webp 1200w, /img/hanging-1800.webp 1800w, /img/hanging-2400.webp 2400w">
+      <img src="/img/hanging-1200.jpg" width="2400" height="1000" alt="A dense curtain of dried statice hanging stem-up, cream and pink flowers still holding their colour." loading="lazy" decoding="async">
+    </picture>
+  </div>
+  <div class="wrap">
+    <h2>Try it on a folder.</h2>
+
+    <div class="foot__term">
+      <pre class="term" aria-label="Terminal: deploying a folder with npx"><span class="cmd"><span class="pr">$</span> npx @statice/cli key</span>
+<span class="cmd"><span class="pr">$</span> npx @statice/cli --name "cool 3d generator"</span>
+  <span class="out">→&nbsp;https://cool-3d-generator-hfj.statice.app</span></pre>
+    </div>
+
+    <p class="foot__ask">There is no signup, and <strong>statice key</strong> does not mint one — it stores a key you were already given. To get a key, email <a href="mailto:access@statice.run">access@statice.run</a>. It is still not an account: the key is admission, and nothing on the server remembers who used it.</p>
+
+    <div class="foot__rows">
+      <span class="sp">content-addressed static hosting</span>
+      <a href="mailto:access@statice.run">access@statice.run</a>
+      <a href="/docs/">docs</a>
+      <a href="https://www.npmjs.com/package/@statice/cli">npm</a>
+      <a href="https://github.com/okandship/statice">source</a>
+      <a href="https://statice.app">statice.app</a>
+    </div>
+
+    <p class="credits">
+      Photographs of statice and kin, on Unsplash:
+      <a href="https://unsplash.com/photos/pink-flower-on-white-surface-KlYd4O7CVgY">Evie S.</a> ·
+      <a href="https://unsplash.com/photos/brown-and-purple-plant-in-close-up-photography-nw6nBDgbz8c">Pedro Forester Da Silva</a> ·
+      <a href="https://unsplash.com/photos/a-close-up-of-flowers-oyIOuR3DsHg">Markus Winkler</a>.
+      Type: JetBrains Mono, under the SIL Open Font License.
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

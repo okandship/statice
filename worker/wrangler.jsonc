@@ -22,7 +22,7 @@
   "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "statice" }],
 
   "vars": {
-    "OWNED_ZONES": "statice.app,statice.run,prmpt.bio,moonquest.dev"
+    "OWNED_ZONES": "statice.app,statice.run,prmpt.bio,moonquest.dev,okandship.com"
   },
 
   "routes": [
@@ -36,6 +36,7 @@
     // route form needs DNS that already answers, which is bootstrap's "2 before
     // 5". Bare hostnames: a custom domain pattern may not carry a path.
     { "pattern": "brand.prmpt.bio", "custom_domain": true },
-    { "pattern": "moonquest.dev", "custom_domain": true }
+    { "pattern": "moonquest.dev", "custom_domain": true },
+    { "pattern": "okandship.com", "custom_domain": true }
   ]
 }
